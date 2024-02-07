@@ -3,6 +3,8 @@ package main
 import (
 	"net/http"
 
+	"snippetbox.volcanoeyes.net/ui"
+
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/alice"
 )
@@ -14,8 +16,10 @@ func (app *application) routes() http.Handler {
 		app.notFound(w)
 	})
 	// makes a handler which serves HTTP requests with the contents of the file system
-	fileServer := http.FileServer(http.Dir("./ui/static/"))
-	router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static", fileServer))
+	fileServer := http.FileServer(http.FS(ui.Files))
+	router.Handler(http.MethodGet, "/static/*filepath", fileServer)
+
+	router.HandlerFunc(http.MethodGet, "/ping", ping)
 
 	dynamic := alice.New(app.sessionManager.LoadAndSave, noSurf, app.authenticate)
 
