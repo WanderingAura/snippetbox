@@ -10,7 +10,7 @@ import (
 	"snippetbox.volcanoeyes.net/internal/assert"
 )
 
-func TestSecureHea(t *testing.T) {
+func TestSecureHeaders(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	r, err := http.NewRequest(http.MethodGet, "/", nil)

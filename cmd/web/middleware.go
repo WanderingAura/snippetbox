@@ -53,7 +53,7 @@ func (app *application) requireAuthentication(next http.Handler) http.Handler {
 	})
 }
 
-// NoSurf middleware function which uses a customised CSRF cpploe with the Secure, Path and HttpOnly attributes set
+// NoSurf middleware function which uses a customised CSRF cookie with the Secure, Path and HttpOnly attributes set
 func noSurf(next http.Handler) http.Handler {
 	csrfHandler := nosurf.New(next)
 	csrfHandler.SetBaseCookie(http.Cookie{
