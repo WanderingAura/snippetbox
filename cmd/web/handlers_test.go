@@ -8,6 +8,44 @@ import (
 	"snippetbox.volcanoeyes.net/internal/assert"
 )
 
+func TestSnippetCreate(t *testing.T) {
+	app := newTestApplication(t)
+	ts := newTestServer(t, app.routes())
+	defer ts.Close()
+
+	t.Run("Unauthenticated", func(t *testing.T) {
+		formTag := `<a href="/user/login">See Other</a>`
+		status, _, body := ts.get(t, "/snippet/create")
+		assert.Equal(t, status, http.StatusSeeOther)
+		assert.StringContains(t, body, formTag)
+	})
+
+	t.Run("Authenticated", func(t *testing.T) {
+		_, _, body := ts.get(t, "/user/login")
+		validCSRFToken := extractCSRFToken(t, body)
+
+		const (
+			email    = "alice@example.com"
+			password = "bigcactus"
+		)
+		form := url.Values{}
+		form.Add("csrf_token", validCSRFToken)
+		form.Add("email", email)
+		form.Add("password", password)
+
+		status, _, body := ts.postForm(t, "/user/login", form)
+
+		if status != http.StatusSeeOther {
+			t.Fatal("Login failed", body)
+		}
+
+		formTag := `<form action='/snippet/create' method='POST'>`
+		status, _, body = ts.get(t, "/snippet/create")
+		assert.Equal(t, status, http.StatusOK)
+		assert.StringContains(t, body, formTag)
+	})
+}
+
 func TestUserSignup(t *testing.T) {
 	app := newTestApplication(t)
 	ts := newTestServer(t, app.routes())
