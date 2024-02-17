@@ -31,6 +31,13 @@ type userLoginForm struct {
 	validator.Validator `form:"-"`
 }
 
+type userPasswordUpdateForm struct {
+	CurrentPassword     string `form:"current_password"`
+	NewPassword         string `form:"new_password"`
+	ConfirmPassword     string `form:"confirm_password"`
+	validator.Validator `form:"-"`
+}
+
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 
 	snippets, err := app.snippets.Latest()
@@ -203,7 +210,13 @@ func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	app.sessionManager.Put(r.Context(), "authenticatedUserID", id)
 
-	http.Redirect(w, r, "/snippet/create", http.StatusSeeOther)
+	// currently if we move out of the login page the lastUrl token data will persist. what we really want is to remove this token when the user clicks off the page. Idea: add a middleware to delete the redirect token for the relevant handlers.
+	lastUrl := app.sessionManager.PopString(r.Context(), "redirectPathAfterLogin")
+	if lastUrl != "" {
+		http.Redirect(w, r, lastUrl, http.StatusSeeOther)
+	} else {
+		http.Redirect(w, r, "/snippet/create", http.StatusSeeOther)
+	}
 }
 
 func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
@@ -218,9 +231,72 @@ func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (app *application) userAccount(w http.ResponseWriter, r *http.Request) {
+	id := app.sessionManager.GetInt(r.Context(), "authenticatedUserID")
+	user, err := app.users.Get(id)
+	if err != nil {
+		if errors.Is(err, models.ErrNoRecord) {
+			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+		} else {
+			app.serverError(w, err)
+		}
+		return
+	}
+
+	data := app.newTemplateData(r)
+	data.User = user
+	app.render(w, http.StatusOK, "account.html", data)
+}
+
 func (app *application) about(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 	app.render(w, http.StatusOK, "about.html", data)
+}
+
+func (app *application) passwordUpdate(w http.ResponseWriter, r *http.Request) {
+	data := app.newTemplateData(r)
+	data.Form = userPasswordUpdateForm{}
+	app.render(w, http.StatusOK, "update_password.html", data)
+}
+
+func (app *application) passwordUpdatePost(w http.ResponseWriter, r *http.Request) {
+	var form userPasswordUpdateForm
+	err := app.decodePostForm(r, &form)
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	form.CheckField(validator.NotBlank(form.CurrentPassword), "current_password", "This field cannot be blank")
+	form.CheckField(validator.NotBlank(form.NewPassword), "new_password", "This field cannot be blank")
+	form.CheckField(validator.MinChars(form.NewPassword, 8), "new_password", "Your new password must at least 8 characters")
+	form.CheckField(validator.NotBlank(form.ConfirmPassword), "confirm_password", "This field cannot be blank")
+	form.CheckField(form.NewPassword == form.ConfirmPassword, "confirm_password", "Passwords do not match")
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, http.StatusUnprocessableEntity, "update_password.html", data)
+		return
+	}
+
+	id := app.sessionManager.GetInt(r.Context(), "authenticatedUserID")
+	err = app.users.UpdatePassword(id, form.CurrentPassword, form.NewPassword)
+	if err != nil {
+		if errors.Is(err, models.ErrInvalidCredentials) {
+			form.AddNonFieldError("The current password that you have entered is incorrect")
+
+			data := app.newTemplateData(r)
+			data.Form = form
+			app.render(w, http.StatusUnprocessableEntity, "update_password.html", data)
+			return
+		}
+		app.serverError(w, err)
+		return
+	}
+
+	app.sessionManager.Put(r.Context(), "flash", "Password change successful!")
+	http.Redirect(w, r, "/account/view", http.StatusSeeOther)
 }
 
 func ping(w http.ResponseWriter, r *http.Request) {
