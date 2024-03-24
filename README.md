@@ -1,8 +1,8 @@
-# Snippetbox guided project
+# Snippetbox project
 
 A web application where users can register and post snippets for everyone to see.
 
-This is my introducty project for backend development. The code in this project is nearly all guided by the book "Let's Go" by Alex Edwards. The main difference is that I chose to use PostgreSQL instead of SQL, hence using a postgres driver in the code.
+This is my introducty project for backend development. The code in this project is mainly guided by the book "Let's Go" by Alex Edwards. The main difference is that I chose to use PostgreSQL instead of SQL, hence using a postgres driver in the code.
 
 I learnt a lot about secure and maintainable backend development through writing this project. 
 
